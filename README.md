@@ -70,3 +70,5 @@ validator against the live PR and reject missing, stale, or incomplete evidence.
 Run `node --test test/evidence.test.cjs` for parser and API-mock checks.
 Run `node scripts/check-pr.cjs OWNER/REPO NUMBER` with authenticated `gh` for the
 same validator against a live PR. This reads only PR metadata and comments.
+
+<!-- Temporary evidence workflow verification probe. -->
