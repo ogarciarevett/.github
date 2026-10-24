@@ -1,0 +1,88 @@
+name: PR evidence
+on:
+  workflow_call:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+  issue_comment:
+    types: [created, edited, deleted]
+permissions: {}
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Check current-head evidence
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8, Node 24
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const number = context.payload.pull_request.number;
+            const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: number});
+            if (pr.head.sha !== context.payload.pull_request.head.sha) {
+              throw new Error('This run is for an old head; use the newest PR check.');
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: number, per_page: 100,
+            });
+            const metadata = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) { lastEditedAt }
+              }
+            }`, {owner, repo, number});
+            const bodyTime = metadata.repository.pullRequest.lastEditedAt || pr.created_at;
+            const sources = [{body: pr.body, updated_at: bodyTime, id: 0}, ...comments];
+            const markers = [];
+            for (const source of sources) {
+              // Template instructions and commented-out evidence are not submissions.
+              const body = (source.body || '').replace(/<!--[\s\S]*?-->/g, '');
+              const matches = [...body.matchAll(/^(?:#{1,6}\s+)?Evidence \(head ([0-9a-f]{7})\)[ \t]*\r?$/gm)];
+              for (const match of matches) {
+                const tail = body.slice(match.index + match[0].length);
+                const proof = tail.split(/\n#{1,6}\s/)[0].trim();
+                markers.push({sha: match[1], proof, time: source.updated_at, id: source.id, offset: match.index});
+              }
+            }
+            markers.sort((a, b) => a.time.localeCompare(b.time) || a.id - b.id || a.offset - b.offset);
+            const newest = markers.at(-1);
+            const head = pr.head.sha.slice(0, 7);
+            if (!newest || newest.sha !== head || !newest.proof) {
+              throw new Error(`Post Evidence (head ${head}) with actual proof for the goal and every other affected feature. The newest submission must match this head and contain proof.`);
+            }
+            core.info(`PASS: newest evidence matches head ${head} and contains proof. A reviewer must assess its coverage and validity.`);
+  refresh:
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      pull-requests: read
+      actions: write
+    steps:
+      - name: Refresh the current PR check
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8, Node 24
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const number = context.payload.issue.number;
+            const {data: pr} = await github.rest.pulls.get({owner, repo, pull_number: number});
+            if (pr.state !== 'open') return;
+            // Re-run only this gate, never project builds or code from a comment.
+            for (let attempt = 0; attempt < 30; attempt++) {
+              const {data} = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: 'evidence.yml', event: 'pull_request',
+                head_sha: pr.head.sha, per_page: 100,
+              });
+              const run = data.workflow_runs.find(run =>
+              run.head_sha === pr.head.sha && run.head_branch === pr.head.ref &&
+              run.head_repository?.full_name === pr.head.repo?.full_name);
+              if (run?.status === 'completed') {
+                await github.rest.actions.reRunWorkflow({owner, repo, run_id: run.id});
+                core.info(`Requested evidence recheck for PR #${number}, head ${pr.head.sha.slice(0, 7)}.`);
+                return;
+              }
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            throw new Error('No completed evidence run for this head. Re-run the PR evidence workflow after it finishes.');
