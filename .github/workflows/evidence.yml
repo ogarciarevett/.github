@@ -1,6 +1,10 @@
 name: PR evidence
 on:
   workflow_call:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+  issue_comment:
+    types: [created, edited, deleted]
 permissions: {}
 jobs:
   verify:
