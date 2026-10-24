@@ -11,9 +11,9 @@ const refresh = new AsyncFunction('github', 'context', 'core', 'setTimeout', scr
 const head = 'abcdef01234567890123456789012345678901234';
 const time = '2026-10-25T01:00:00Z';
 const evidence = '## Evidence (head abcdef0)\n\nCommand: curl localhost/health\nHTTP 200 OK';
-function check(body, comments = [], payloadHead = head) {
-  const pr = {body, head: {sha: head}, updated_at: time};
-  return verify({rest: {pulls: {get: async () => ({data: pr})}, issues: {listComments: null}},
+function check(body, comments = [], payloadHead = head, lastEditedAt = null) {
+  const pr = {body, head: {sha: head}, created_at: time, updated_at: '2026-10-26T01:00:00Z'};
+  return verify({graphql: async () => ({repository: {pullRequest: {lastEditedAt}}}), rest: {pulls: {get: async () => ({data: pr})}, issues: {listComments: null}},
     paginate: async () => comments}, {repo: {owner: 'owner', repo: 'repo'},
     payload: {pull_request: {number: 1, head: {sha: payloadHead}}}}, {info() {}});
 }
@@ -62,3 +62,10 @@ test('no completed matching run fails closed', async () => {
   await assert.rejects(recheck([{id: 99, status: 'in_progress', pull_requests: [{number: 1}]}]), /No completed/);
 });
 test('closed PR does not rerun', async () => assert.deepEqual(await recheck([], 'closed'), []));
+
+test('unrelated PR activity does not reorder body evidence', async () => check(
+  evidence.replace('abcdef0', '1234567'),
+  [{body: evidence, updated_at: '2026-10-25T02:00:00Z', id: 1}]));
+test('explicit body edit reorders evidence', async () => assert.rejects(check(
+  evidence.replace('abcdef0', '1234567'),
+  [{body: evidence, updated_at: time, id: 1}], head, '2026-10-25T03:00:00Z'), /Post Evidence/));

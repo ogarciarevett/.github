@@ -28,7 +28,13 @@ jobs:
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner, repo, issue_number: number, per_page: 100,
             });
-            const sources = [{body: pr.body, updated_at: pr.updated_at, id: 0}, ...comments];
+            const metadata = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) { lastEditedAt }
+              }
+            }`, {owner, repo, number});
+            const bodyTime = metadata.repository.pullRequest.lastEditedAt || pr.created_at;
+            const sources = [{body: pr.body, updated_at: bodyTime, id: 0}, ...comments];
             const markers = [];
             for (const source of sources) {
               // Template instructions and commented-out evidence are not submissions.

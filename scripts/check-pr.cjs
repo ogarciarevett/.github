@@ -13,6 +13,8 @@ const workflow = readFileSync(join(__dirname, '../.github/workflows/evidence.yml
 const script = workflow.split('          script: |\n')[1].split('  refresh:')[0].replace(/^            /gm, '');
 const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
 new AsyncFunction('github', 'context', 'core', script)({
+  graphql: async query => JSON.parse(execFileSync('gh', ['api', 'graphql', '-f', `query=${query}`,
+    '-f', `owner=${owner}`, '-f', `repo=${repo}`, '-F', `number=${number}`], {encoding: 'utf8'})).data,
   rest: {pulls: {get: async () => ({data: pr})}, issues: {listComments: 'comments'}},
   paginate: async () => {
     const pages = JSON.parse(execFileSync('gh', ['api', '--paginate', '--slurp',

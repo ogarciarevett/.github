@@ -19,9 +19,9 @@ Other affected features: list each one and its own proof, or explain why none ap
 
 Use the first seven characters of the PR's current head SHA. Logs, screenshots,
 terminal tables, and HTTP responses are welcome. Keep secrets and personal data out.
-The newest evidence marker in the body or issue comments, ordered by source update
+The newest evidence marker in the body or issue comments, ordered by body edit/comment update
 time and then position, must match the head and contain proof. Re-editing an older
-submission makes it newer. A body edit also updates its ordering. HTML comments
+submission makes it newer. A body edit also updates its ordering; unrelated PR activity does not. HTML comments
 and empty sections are ignored as proof. Submit a fresh comment if an unrelated
 body edit makes its old submission the newest one.
 
