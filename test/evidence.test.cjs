@@ -42,8 +42,8 @@ test('all comments are paginated', async () => {
 async function recheck(runs, state = 'open') {
   const calls = [];
   const github = {rest: {
-    pulls: {get: async () => ({data: {head: {sha: head}, state}})},
-    actions: {listWorkflowRuns: async args => {calls.push(args); return {data: {workflow_runs: runs}};},
+    pulls: {get: async () => ({data: {head: {sha: head, ref: 'feature', repo: {full_name: 'contributor/repo'}}, state}})},
+    actions: {listWorkflowRuns: async args => {calls.push(args); return {data: {workflow_runs: runs.map(run => ({head_sha: head, head_branch: 'feature', head_repository: {full_name: 'contributor/repo'}, ...run}))}};},
       reRunWorkflow: async args => calls.push(args)},
   }};
   await refresh(github, {repo: {owner: 'owner', repo: 'repo'}, payload: {issue: {number: 1}}},
@@ -58,7 +58,7 @@ test('comment reruns only evidence workflow for matching PR and head', async () 
   assert.equal(calls[1].run_id, 99);
 });
 test('no completed matching run fails closed', async () => {
-  await assert.rejects(recheck([{id: 99, status: 'completed', pull_requests: [{number: 2}]}]), /No completed/);
+  await assert.rejects(recheck([{id: 99, status: 'completed', head_branch: 'unrelated', pull_requests: [{number: 2}]}]), /No completed/);
   await assert.rejects(recheck([{id: 99, status: 'in_progress', pull_requests: [{number: 1}]}]), /No completed/);
 });
 test('closed PR does not rerun', async () => assert.deepEqual(await recheck([], 'closed'), []));
@@ -69,3 +69,12 @@ test('unrelated PR activity does not reorder body evidence', async () => check(
 test('explicit body edit reorders evidence', async () => assert.rejects(check(
   evidence.replace('abcdef0', '1234567'),
   [{body: evidence, updated_at: time, id: 1}], head, '2026-10-25T03:00:00Z'), /Post Evidence/));
+
+test('fork comment refresh works with empty pull_requests association', async () => {
+  const calls = await recheck([{id: 42, status: 'completed', pull_requests: []}]);
+  assert.equal(calls.at(-1).run_id, 42);
+});
+test('refresh rejects another head repository or SHA', async () => {
+  await assert.rejects(recheck([{id: 42, status: 'completed', head_repository: {full_name: 'other/repo'}, pull_requests: []}]), /No completed/);
+  await assert.rejects(recheck([{id: 42, status: 'completed', head_sha: 'f'.repeat(40), pull_requests: []}]), /No completed/);
+});

@@ -75,7 +75,9 @@ jobs:
                 owner, repo, workflow_id: 'evidence.yml', event: 'pull_request',
                 head_sha: pr.head.sha, per_page: 100,
               });
-              const run = data.workflow_runs.find(run => run.pull_requests.some(p => p.number === number));
+              const run = data.workflow_runs.find(run =>
+              run.head_sha === pr.head.sha && run.head_branch === pr.head.ref &&
+              run.head_repository?.full_name === pr.head.repo?.full_name);
               if (run?.status === 'completed') {
                 await github.rest.actions.reRunWorkflow({owner, repo, run_id: run.id});
                 core.info(`Requested evidence recheck for PR #${number}, head ${pr.head.sha.slice(0, 7)}.`);
