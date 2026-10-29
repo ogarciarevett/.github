@@ -29,3 +29,26 @@
   deploy, publish, spend, change credentials or broaden CI permissions.
 - Legacy evidence automation is outside this policy: do not restore, modify or
   rerun its workflow, checker or scripts. No executable enforcement is added here.
+
+## Coordinator work queue
+
+- At every loop, read GitHub fresh for open issues in the approved repositories
+  with the configured owner label, `ready-for-agent` and P0 or P1 priority. Order
+  P0 first, then P1; skip issues whose spec body has a live `Agent:` claim. Memory
+  and checkpoints are context, not the authoritative work queue.
+- Every P0 spec has exactly one authorized `implement-spec` lead. That lead
+  follows the ticket frontier until the whole spec is closed. When it finishes,
+  start the next eligible lead in the same coordinator turn, if one is available.
+- On start, the lead writes `Agent: <name>` in the spec body. Replace that claim
+  when the lead finishes so a stale live claim cannot hide eligible work.
+- A coordinator task that creates a spec is complete only after an authorized
+  owner agent has actually started it; an issue link or an assignment alone is
+  insufficient.
+- When a lead starts, send the Chief one line: `STARTED: #<n> <agent>`. Report
+  subsequent states with `MERGED`, `FAIL`, `BLOCKED`, `DECISION`, `DONE` or `READY`
+  as applicable. Routing configuration stays private; never publish internal run
+  identifiers, credentials or local coordination paths.
+
+These are operating instructions, not implemented runtime automation. They do
+not create sessions, start workers, activate hooks or grant authority beyond the
+existing task authorization.

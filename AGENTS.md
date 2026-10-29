@@ -11,3 +11,7 @@ explicitly; this file does not install tools or activate automation elsewhere.
 
 Related or dependent PRs use the official `gh stack` workflow and merge together
 with `gh stack merge`. Record stack links, base relationships and exact heads.
+
+For coordinator queue selection, lead claims and start/completion reporting,
+follow [Coordinator work queue](CODING_STANDARDS.md#coordinator-work-queue).
+This pointer provides policy only; no coordinator runtime is installed here.

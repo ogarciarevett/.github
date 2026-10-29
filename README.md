@@ -47,7 +47,9 @@ repositories must explicitly adopt the applicable tool checks and their own
 AGENTS/CODING policy. Files here do not enforce checks in another repository.
 
 See [repository instructions](AGENTS.md) and
-[guidance standards](CODING_STANDARDS.md). This change is text-only. The legacy
+[guidance standards](CODING_STANDARDS.md), including its portable
+[coordinator work queue](CODING_STANDARDS.md#coordinator-work-queue) policy.
+This change is text-only. The legacy
 evidence workflow, checker, scripts and permissions remain unchanged and are
 not an installation or rerun path for this policy. Do not restore that automation
 or the archived cross-AI template.
